@@ -1,9 +1,38 @@
 import os
 import sys
 import subprocess
+import importlib.util
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+REQUIRED_MODULES = [
+    "requests",
+    "bs4",
+    "playwright"
+]
+
+def is_module_installed(module_name):
+    return importlib.util.find_spec(module_name) is not None
+
+def install_module(module_name):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", module_name])
+
+def ensure_dependencies():
+    missing = [m for m in REQUIRED_MODULES if not is_module_installed(m)]
+    if missing:
+        print(f"Følgende moduler mangler: {', '.join(missing)}")
+        confirm = input("Vil du installere dem nu? (y/n): ").strip().lower()
+        if confirm in ["y", "yes"]:
+            for m in missing:
+                install_module(m)
+        else:
+            print("Afslutter. Manglende moduler.")
+            sys.exit(1)
+
+    # Installer Playwright-browsere (en gang)
+    subprocess.check_call([sys.executable, "-m", "playwright", "install", "chromium"])
+
 
 def list_projects():
     return [name for name in os.listdir(ROOT_DIR)
@@ -40,7 +69,9 @@ def select_existing_project(projects):
         print("Ugyldigt valg. Prøv igen.")
 
 def main():
-    print("=== Screenshotværktøj - Projektstyring ===")
+    print("=== Screenshotværktøj ===")
+    ensure_dependencies()
+
     choice = prompt_user("Vil du oprette et (n)yt projekt eller bruge et (e)ksisterende? ", ["n", "e"])
 
     if choice == "n":
@@ -75,7 +106,6 @@ def main():
         print("Ugyldig URL. Husk at inkludere http:// eller https://")
         sys.exit(1)
 
-    # Vi er nu i projektmappen – og kalder scriptfilerne via absolut sti
     subprocess.check_call([sys.executable, os.path.join(SCRIPT_DIR, "crawl.py"), start_url, mode])
     subprocess.check_call([sys.executable, os.path.join(SCRIPT_DIR, "screenshot.py"), mode])
 
