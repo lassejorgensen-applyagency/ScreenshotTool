@@ -15,6 +15,40 @@ def url_to_filename(url):
     cleaned = path.replace("/", "-").replace("?", "").replace("=", "").replace("&", "")
     return cleaned.lower()
 
+def try_handle_cookie_banner(page):
+    selectors = [
+        "#CybotCookiebotDialogBodyButtonAccept",            # Cookiebot
+        "#onetrust-accept-btn-handler",                    # OneTrust
+        ".cookie-consent-accept",                          # generisk
+        "button[aria-label='Accept all']",                 # tilgængelighedsknap
+        "button:has-text('Accept all')",
+        "button:has-text('Godkend alle')",
+        "button:has-text('Accepter alle')",
+    ]
+    for selector in selectors:
+        try:
+            page.click(selector, timeout=3000)
+            print(f"✔ Klikkede på cookie consent: {selector}")
+            return
+        except:
+            continue
+
+    # Fallback: skjul med CSS
+    try:
+        page.add_style_tag(content="""
+            #CybotCookiebotDialog,
+            #onetrust-banner-sdk,
+            .cookie-banner,
+            .cookie-consent,
+            .cc-window,
+            .osano-cm-dialog {
+                display: none !important;
+            }
+        """)
+        print("⚠️ Cookie-popup kunne ikke klikkes – forsøger at skjule med CSS.")
+    except:
+        print("❌ Kunne ikke skjule cookie-popup.")
+
 def take_screenshots(mode):
     folder = mode  # e.g., "before" or "after"
     os.makedirs(folder, exist_ok=True)
@@ -36,10 +70,10 @@ def take_screenshots(mode):
             try:
                 print(f"Henter screenshot af: {url}")
                 page.goto(url, timeout=10000)
+                try_handle_cookie_banner(page)
 
                 filename = url_to_filename(url)
                 path = f"{folder}/{filename}.png"
-
                 page.screenshot(path=path, full_page=True)
             except Exception as e:
                 print(f"Fejl ved {url}: {e}")
